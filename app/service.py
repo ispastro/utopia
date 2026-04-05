@@ -43,6 +43,10 @@ def get_groq_client() -> Groq:
         _groq_client = Groq(api_key=api_key)
     return _groq_client
 
+def use_ai_mode() -> bool:
+    """Check if AI mode is enabled"""
+    return os.getenv("USE_AI", "false").lower() == "true"
+
 # ─── Timeframe resolver ───────────────────────────────────────────────────────
 
 def resolve_timeframe(request: EventSearchRequest) -> tuple[str, str]:
@@ -298,7 +302,63 @@ def generate_campaign_for_event(event: Event, db: Session) -> Campaign:
         logger.info(f"Event {event.id} already has campaign, returning existing")
         return existing
 
-    # Generate Meta ad creative using AI
+    # Mock mode - return hardcoded campaign
+    if not use_ai_mode():
+        logger.info("Mock mode: generating hardcoded campaign")
+        campaign = Campaign(
+            name=f"{event.name} Campaign",
+            goal="bookings",
+            purpose="both",
+            start_date=event.start_date,
+            end_date=event.end_date,
+            status="draft",
+            event_id=event.id,
+            target={"source": ["pms", "website", "meta"]}
+        )
+        db.add(campaign)
+        db.flush()
+
+        # Mock Meta ad
+        meta_ad = CampaignAd(
+            campaign_id=campaign.id,
+            purpose="acquisition",
+            channel="meta",
+            title=f"Experience {event.name} - Book Your Stay Now!",
+            message=f"Don't miss {event.name}! Limited rooms available. Book today and save 20%.",
+            status="draft",
+            target_audience={"age_range": "25-55", "interests": ["travel", "events"], "location": "Ethiopia"},
+            image_prompt=f"Modern hotel room with Ethiopian cultural elements, {event.name} poster visible",
+            budget=1000.0
+        )
+        db.add(meta_ad)
+
+        # Mock SMS ad
+        sms_ad = CampaignAd(
+            campaign_id=campaign.id,
+            purpose="activation",
+            channel="sms",
+            message=f"Hi {{{{name}}}}, {event.name} is coming! Book now and save 20%!",
+            status="draft"
+        )
+        db.add(sms_ad)
+
+        # Mock Email ad
+        email_ad = CampaignAd(
+            campaign_id=campaign.id,
+            purpose="activation",
+            channel="email",
+            title=f"Experience {event.name} - Book Your Stay Now!",
+            message=f"Dear {{{{name}}}},\n\nDon't miss {event.name}! Limited rooms available. Book today and save 20%.\n\nBook your stay today!",
+            status="draft"
+        )
+        db.add(email_ad)
+
+        db.commit()
+        db.refresh(campaign)
+        logger.info(f"Mock campaign {campaign.id} with {len(campaign.ads)} ads created")
+        return campaign
+
+    # AI mode - generate with Groq
     prompt = f"""You are a hospitality marketing expert. Generate ONE Meta ad campaign for this event.
 
 Event:

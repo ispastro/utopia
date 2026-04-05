@@ -47,7 +47,7 @@ class Event(Base):
     updated_at = Column(DateTime, onupdate=func.now())
     last_seen_at = Column(DateTime, server_default=func.now())
 
-    campaigns = relationship("AdCampaign", back_populates="event", cascade="all, delete-orphan")
+    campaigns = relationship("Campaign", back_populates="event", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Event(name='{self.name}', category='{self.category}')>"
