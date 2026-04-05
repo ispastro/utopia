@@ -19,7 +19,7 @@ python-multipart==0.0.12
 
 # AI Services
 google-genai>=1.70.0
-groq==0.11.0
+groq>=0.13.0
 
 # Utilities
 python-dotenv
